@@ -418,14 +418,14 @@
 <body>
   <header>
     <div class="wrap topbar">
-      <a class="brand" href="/">
+      <a class="brand" href="/" target="_top">
         SPHEREx <span class="brand-tag">Live Tracker</span>
       </a>
       <nav class="navlinks">
-        <a href="/">Mission</a>
-        <a href="/explorer">Data Explorer</a>
-        <a href="/tracker" class="active">Live Orbit</a>
-        <a href="/fits">FITS Viewer</a>
+        <a href="/" target="_top">Mission</a>
+        <a href="/explorer" target="_top">Data Explorer</a>
+        <a href="/tracker" target="_top" class="active">Live Orbit</a>
+        <a href="/fits" target="_top">FITS Viewer</a>
       </nav>
     </div>
   </header>
@@ -832,48 +832,67 @@
           function drawTrack(points, color, width, dashed = false) {
             if (!points.length) return;
             ctx.save();
+            function strokeTrack() {
+              ctx.beginPath();
+              let previous = null;
+              points.forEach((point) => {
+                const latitude = Number(point.latitude);
+                const longitude = Number(point.longitude);
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                  previous = null;
+                  return;
+                }
+
+                const y = latToY(latitude, h);
+                if (!previous) {
+                  ctx.moveTo(lonToX(longitude, w), y);
+                  previous = { latitude, longitude };
+                  return;
+                }
+
+                let unwrappedLongitude = longitude;
+                if (unwrappedLongitude - previous.longitude > 180) unwrappedLongitude -= 360;
+                else if (unwrappedLongitude - previous.longitude < -180) unwrappedLongitude += 360;
+
+                if (unwrappedLongitude > 180 || unwrappedLongitude < -180) {
+                  const seamLongitude = unwrappedLongitude > 180 ? 180 : -180;
+                  const fraction = (seamLongitude - previous.longitude)
+                    / (unwrappedLongitude - previous.longitude);
+                  const seamLatitude = previous.latitude + (latitude - previous.latitude) * fraction;
+                  const seamY = latToY(seamLatitude, h);
+                  ctx.lineTo(seamLongitude > 0 ? w : 0, seamY);
+                  ctx.stroke();
+                  ctx.beginPath();
+                  ctx.moveTo(seamLongitude > 0 ? 0 : w, seamY);
+                  ctx.lineTo(lonToX(longitude, w), y);
+                } else {
+                  ctx.lineTo(lonToX(longitude, w), y);
+                }
+                previous = { latitude, longitude };
+              });
+              ctx.stroke();
+            }
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
             ctx.lineWidth = width + 5;
             ctx.strokeStyle = color.replace(/[\d.]+\)$/, "0.12)");
             ctx.setLineDash([]);
-            ctx.beginPath();
-            let previousX = null;
-            points.forEach((pt, index) => {
-              const x = lonToX(pt.longitude, w);
-              const y = latToY(pt.latitude, h);
-              if (index === 0 || (previousX !== null && Math.abs(x - previousX) > w * 0.4)) {
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-              } else {
-                ctx.lineTo(x, y);
-              }
-              previousX = x;
-            });
-            ctx.stroke();
+            strokeTrack();
             ctx.lineWidth = width;
             ctx.strokeStyle = color;
             ctx.setLineDash(dashed ? [8, 8] : []);
-            ctx.beginPath();
-            previousX = null;
-            points.forEach((pt, index) => {
-              const x = lonToX(pt.longitude, w);
-              const y = latToY(pt.latitude, h);
-              if (index === 0 || (previousX !== null && Math.abs(x - previousX) > w * 0.4)) {
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-              } else {
-                ctx.lineTo(x, y);
-              }
-              previousX = x;
-            });
-            ctx.stroke();
+            strokeTrack();
             ctx.restore();
           }
 
           // Render Past Track (Dashed) and Future Track (Solid)
           const pastPoints = groundTrackPoints.filter(p => p.is_past);
-          const futurePoints = groundTrackPoints.filter(p => !p.is_past);
+          const futurePoints = groundTrackPoints.filter(p => !p.is_past).map(point => (
+            point.is_current && currentTelemetry
+              ? { ...point, latitude: currentTelemetry.latitude, longitude: currentTelemetry.longitude }
+              : point
+          ));
           drawTrack(pastPoints, "rgba(105, 173, 255, 0.82)", 2.5, true);
           drawTrack(futurePoints, "rgba(70, 235, 239, 0.98)", 3.5);
           /*

@@ -1,10 +1,11 @@
 # SPHEREx Frontend
 
-A Flask website for exploring the SPHEREx mission, its orbit, FITS observations, and candidate detections.
+A React/Vite route host for the original Flask-rendered SPHEREx pages. The original page markup, styles, and interactions remain the visual source of truth; Flask also proxies the analysis API.
 
 ## Requirements
 
 - Python 3
+- Node.js and npm
 - The separate SPHEREx analysis API for live telemetry, FITS images, and candidate data
 
 The API is not included in this repository. By default, the interactive pages expect it at `http://127.0.0.1:8000`.
@@ -22,6 +23,12 @@ python -m pip install -r requirements.txt
 
 On Windows PowerShell, use `.venv\Scripts\Activate.ps1` to activate the environment after creating it with `py -m venv .venv`.
 
+Install the JavaScript packages from the project directory:
+
+```bash
+npm install
+```
+
 ## Configure and run
 
 Set the API address in `.env` (copy `.env.example` if needed). Flask proxies browser API requests through the frontend origin, so the API does not need to enable cross-origin browser access. For example:
@@ -31,15 +38,31 @@ cp .env.example .env
 # Set SPHEREX_API_URL=http://127.0.0.1:8000 in .env
 ```
 
-Start the analysis API separately, if you want the explorer, tracker, and FITS viewer to load live data. Then, from the activated virtual environment, run:
+Start the analysis API separately, if you want the explorer, tracker, and FITS viewer to load live data. Start Flask in one terminal:
 
 ```bash
+source .venv/bin/activate
+python -c "import app; app.app.run(host='0.0.0.0', port=5050)"
+```
+
+In a second terminal, start the React development server:
+
+```bash
+npm run dev
+```
+
+Open the Vite URL printed in the terminal, usually <http://localhost:5173>. Vite forwards `/api` and `/geography` requests to Flask on port `5050`; Flask forwards API calls to the configured analysis API. The app loads settings from `.env` and also accepts environment variables. Set `SPHEREX_API_URL` to the API's base URL; a URL ending in `/api` is also accepted and normalized automatically.
+
+For a production-style Flask run, build React and start Flask:
+
+```bash
+npm run build
 python app.py
 ```
 
-Open <http://127.0.0.1:5000>. The app loads settings from `.env` and also accepts environment variables. Set `SPHEREX_API_URL` to the API's base URL; a URL ending in `/api` is also accepted and normalized automatically. When it is not set, the frontend defaults to the API on port `8000` when served on ports `5000`, `5001`, or `5050`.
+Flask then serves the built React app and its static assets.
 
-The home page works without the API. The Data Explorer, Live Tracker, and FITS Viewer need it for their live data and will show errors or empty data when it is unavailable. The 3D view and fonts also load external resources, so they may be limited without internet access.
+The home page works without the analysis API. The Data Explorer, Live Tracker, and FITS Viewer need it for live data. The 3D view and fonts also load external resources, so they may be limited without internet access.
 
 ## Optional geography files
 
@@ -56,4 +79,4 @@ The tracker can serve local GeoJSON files from a `geography` directory under `da
 
 - **`ModuleNotFoundError` for Flask:** activate `.venv` and run `python -m pip install -r requirements.txt`.
 - **API connection errors:** confirm the analysis API is running and that `SPHEREX_API_URL` points to it.
-- **Port 5000 is already in use:** stop the process using it, or start Flask on another port, for example `python -c "import app; app.app.run(host='0.0.0.0', port=5050)"`. The automatic API fallback includes port `5050`; for other ports, set `SPHEREX_API_URL` explicitly.
+- **Port 5050 is already in use:** stop the process using it, or update the target in `vite.config.js` to match the port used by Flask.

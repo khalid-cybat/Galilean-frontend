@@ -29,6 +29,7 @@ def _normalize_api_base_url(value: str) -> str:
 
 API_BASE_URL = _normalize_api_base_url(os.getenv("SPHEREX_API_URL", ""))
 DATA_DIR = Path(os.getenv("SPHEREX_DATA_DIR", Path(__file__).resolve().parent / "data"))
+DIST_DIR = Path(__file__).resolve().parent / "dist"
 GEOGRAPHY_DIR = DATA_DIR / "geography"
 GEOGRAPHY_FILES = {
     "ne_50m_admin_0_countries.geojson",
@@ -267,7 +268,7 @@ PAGE = """<!doctype html>
   <nav class="top" aria-label="Main">
     <div class="wrap bar">
       <a class="brand" href="#top">SPHEREx</a>
-      <div class="navlinks"><a href="/explorer">Data Explorer</a><a href="/tracker">Live Tracker</a><a href="/fits">FITS Viewer</a><a href="#explore">3D</a><a href="#spectrum">Spectrum</a><a href="#science">Science</a><a href="#mission">Mission</a></div>
+      <div class="navlinks"><a href="/explorer" target="_top">Data Explorer</a><a href="/tracker" target="_top">Live Tracker</a><a href="/fits" target="_top">FITS Viewer</a><a href="#explore">3D</a><a href="#spectrum">Spectrum</a><a href="#science">Science</a><a href="#mission">Mission</a></div>
     </div>
   </nav>
   <main class="wrap">
@@ -674,8 +675,7 @@ PAGE = """<!doctype html>
 """
 
 
-@app.route("/")
-def home():
+def render_mission_page():
     bands = build_bands()
     ticks = [
         {"label": label, "left": round((band_index(bands, c) + 0.5) / len(bands) * 100, 1)}
@@ -689,13 +689,39 @@ def home():
     )
 
 
+@app.route("/")
+def home():
+    if (DIST_DIR / "index.html").is_file():
+        return send_from_directory(DIST_DIR, "index.html")
+    return render_mission_page()
+
+
+@app.route("/legacy/")
+def legacy_home():
+    return render_mission_page()
+
+
 @app.route("/explorer")
 def explorer():
+    if (DIST_DIR / "index.html").is_file():
+        return send_from_directory(DIST_DIR, "index.html")
+    return render_template("explorer.html")
+
+
+@app.route("/legacy/explorer")
+def legacy_explorer():
     return render_template("explorer.html")
 
 
 @app.route("/tracker")
 def tracker():
+    if (DIST_DIR / "index.html").is_file():
+        return send_from_directory(DIST_DIR, "index.html")
+    return render_template("tracker.html")
+
+
+@app.route("/legacy/tracker")
+def legacy_tracker():
     return render_template("tracker.html")
 
 
@@ -746,7 +772,23 @@ def proxy_api(api_path):
 
 @app.route("/fits")
 def fits_viewer():
+    if (DIST_DIR / "index.html").is_file():
+        return send_from_directory(DIST_DIR, "index.html")
     return render_template("fits_viewer.html")
+
+
+@app.route("/legacy/fits")
+def legacy_fits_viewer():
+    return render_template("fits_viewer.html")
+
+
+@app.route("/<path:asset_path>")
+def react_asset_or_route(asset_path):
+    if (DIST_DIR / asset_path).is_file():
+        return send_from_directory(DIST_DIR, asset_path)
+    if (DIST_DIR / "index.html").is_file():
+        return send_from_directory(DIST_DIR, "index.html")
+    return {"error": "Page not found"}, 404
 
 
 if __name__ == "__main__":
