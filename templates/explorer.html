@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Explorer · SPHEREx</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --panel: #111114;
+      --text: #f4f5f8;
+      --muted: #a9acb8;
+      --rule: #303037;
+      --red: #fc3d21;
+      --green: #70d6a0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, sans-serif;
+    }
+    a { color: inherit; text-underline-offset: 4px; }
+    a:hover { color: #ff8878; }
+    button {
+      min-height: 42px;
+      padding: .55rem 1rem;
+      border: 1px solid #55555f;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { border-color: var(--text); }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    button:focus-visible, a:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+    .wrap { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--rule);
+      background: #080809;
+    }
+    .topbar {
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand { font-weight: 750; letter-spacing: .12em; text-decoration: none; }
+    .back { color: var(--muted); }
+    main { padding: 2rem 0 4rem; }
+    .eyebrow {
+      color: var(--red);
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 { margin: .35rem 0 .4rem; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; }
+    .intro { max-width: 68ch; color: var(--muted); margin: 0; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin: 2rem 0 1rem;
+    }
+    .status { color: var(--muted); }
+    .status[data-state="ok"] { color: var(--green); }
+    .status[data-state="error"] { color: #ff8878; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: .75rem;
+      margin: 1rem 0 2.5rem;
+    }
+    .stat {
+      min-height: 112px;
+      padding: 1rem;
+      border: 1px solid var(--rule);
+      background: var(--panel);
+    }
+    .stat span { display: block; color: var(--muted); font-size: .85rem; }
+    .stat strong { display: block; margin-top: .5rem; font-size: 1.35rem; overflow-wrap: anywhere; }
+    .comparison { margin: 0 0 2.5rem; }
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+      gap: .85rem;
+      margin-top: .85rem;
+    }
+    .image-panel {
+      min-width: 0;
+      padding: .8rem;
+      border: 1px solid var(--rule);
+      background: var(--panel);
+    }
+    .image-panel h3 { margin: 0 0 .65rem; font-size: 1rem; }
+    .image-stage {
+      position: relative;
+      overflow: hidden;
+      background: #080809;
+    }
+    .image-stage img { display: block; width: 100%; height: auto; }
+    .image-stage img[hidden], .image-stage svg[hidden], .image-status[hidden] { display: none !important; }
+    .image-stage svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .candidate-mark { cursor: pointer; stroke: #fff; stroke-width: 3; }
+    .candidate-mark.positive { fill: #fc3d21; fill-opacity: .8; }
+    .candidate-mark.negative { fill: #4387ff; fill-opacity: .8; }
+    .candidate-mark:focus-visible { stroke: #ffeb80; stroke-width: 6; outline: none; }
+    .image-status {
+      display: grid;
+      min-height: 180px;
+      margin: 0;
+      padding: 2rem 1rem;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+    }
+    .comparison-note, .overlay-hint { color: var(--muted); font-size: .88rem; }
+    .comparison-note { margin: .8rem 0 0; }
+    .overlay-hint { margin: .35rem 0 0; }
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: .85rem;
+    }
+    #difference-column-unit { letter-spacing: 0; text-transform: none; }
+    .filters {
+      display: flex;
+      align-items: end;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+    .filters label { display: grid; gap: .3rem; color: var(--muted); font-size: .82rem; }
+    .filters select, .filters input {
+      min-height: 42px;
+      padding: .5rem .65rem;
+      border: 1px solid #55555f;
+      border-radius: 0;
+      background: var(--panel);
+      color: var(--text);
+      font: inherit;
+    }
+    .candidate-link {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      text-transform: capitalize;
+    }
+    .candidate-link:hover { text-decoration: underline; }
+    h2 { margin: 0; font-size: 1.45rem; }
+    .hint { margin: .2rem 0 0; color: var(--muted); font-size: .9rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--rule); }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: .8rem 1rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+    th { color: var(--muted); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #161619; }
+    .kind { font-weight: 700; text-transform: capitalize; }
+    .kind.positive { color: #ff927f; }
+    .kind.negative { color: #8eb6ff; }
+    .message { padding: 1.25rem; color: var(--muted); text-align: center; }
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .75rem;
+      margin-top: .9rem;
+    }
+    #page-label { min-width: 8rem; color: var(--muted); text-align: center; }
+    .disclaimer { margin-top: 1rem; color: var(--muted); font-size: .88rem; }
+    dialog {
+      width: min(94vw, 680px);
+      max-height: 90vh;
+      overflow: auto;
+      border: 1px solid var(--rule);
+      background: var(--panel);
+      color: var(--text);
+      padding: 1.25rem;
+    }
+    dialog::backdrop { background: rgb(0 0 0 / 78%); }
+    .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+    .dialog-heading h2 { margin: 0; }
+    .dialog-meta { color: var(--muted); margin: .5rem 0 1rem; }
+    #cutout {
+      display: block;
+      width: min(100%, 500px);
+      height: auto;
+      margin: 0 auto;
+      image-rendering: pixelated;
+      transform: scaleY(-1);
+      border: 1px solid var(--rule);
+    }
+    .cutout-legend { color: var(--muted); text-align: center; font-size: .85rem; }
+    @media (max-width: 540px) {
+      .wrap { width: min(100% - 1.25rem, 1120px); }
+      th, td { padding: .7rem; }
+      .pagination { justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <a class="brand" href="/">SPHEREx</a>
+      <nav style="display: flex; gap: 1.25rem; font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; font-size: .9rem;">
+        <a href="/" style="color: var(--muted);">Mission</a>
+        <a href="/explorer" style="color: var(--text);">Explorer</a>
+        <a href="/tracker" style="color: var(--muted);">Live Orbit</a>
+        <a href="/fits" style="color: var(--muted);">FITS Viewer</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <p class="eyebrow">Observation analysis</p>
+    <h1>Data Explorer</h1>
+    <p class="intro">Compare the two observation epochs and browse the candidate sources produced by the current analysis.</p>
+
+    <div class="toolbar">
+      <span class="status" id="status" role="status" aria-live="polite" data-state="loading">Connecting to the analysis API…</span>
+      <button id="refresh" type="button">Refresh data</button>
+    </div>
+
+    <section class="stats" aria-label="Epoch comparison summary">
+      <div class="stat"><span>Epoch 1 image</span><strong id="epoch1-shape">—</strong></div>
+      <div class="stat"><span>Epoch 2 image</span><strong id="epoch2-shape">—</strong></div>
+      <div class="stat"><span>Finite comparison pixels</span><strong id="valid-pixels">—</strong></div>
+      <div class="stat"><span>Mean difference (<span id="mean-unit">image units</span>)</span><strong id="mean-difference">—</strong></div>
+      <div class="stat"><span>Median difference (<span id="median-unit">image units</span>)</span><strong id="median-difference">—</strong></div>
+    </section>
+
+    <section class="comparison" aria-labelledby="comparison-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="comparison-heading">Observation comparison</h2>
+          <p class="hint">Epoch 2 is aligned to Epoch 1’s pixel grid. The difference image is Epoch 2 − Epoch 1.</p>
+        </div>
+      </div>
+      <div class="comparison-grid">
+        <article class="image-panel">
+          <h3>Epoch 1 · reference</h3>
+          <div class="image-stage" data-image-panel="epoch1">
+            <p class="image-status" role="status">Loading Epoch 1 image…</p>
+            <img alt="Epoch 1 reference observation with candidate positions marked" hidden>
+            <svg class="candidate-overlay" aria-label="Candidate positions in Epoch 1 reference image" hidden></svg>
+          </div>
+        </article>
+        <article class="image-panel">
+          <h3>Epoch 2 · aligned</h3>
+          <div class="image-stage" data-image-panel="epoch2">
+            <p class="image-status" role="status">Loading aligned Epoch 2 image…</p>
+            <img alt="Epoch 2 observation aligned to Epoch 1 with candidate positions marked" hidden>
+            <svg class="candidate-overlay" aria-label="Candidate positions in aligned Epoch 2 image" hidden></svg>
+          </div>
+        </article>
+        <article class="image-panel">
+          <h3>Difference · Epoch 2 − Epoch 1</h3>
+          <div class="image-stage" data-image-panel="difference">
+            <p class="image-status" role="status">Loading difference image…</p>
+            <img alt="Difference image showing Epoch 2 minus Epoch 1 with candidate positions marked" hidden>
+            <svg class="candidate-overlay" aria-label="Candidate positions in the difference image" hidden></svg>
+          </div>
+        </article>
+      </div>
+      <p class="comparison-note">Positive changes are red and negative changes are blue in the difference image. Candidate markers show the type of difference candidate, not independently detected sources in each epoch.</p>
+      <p class="overlay-hint" id="overlay-hint">Candidate markers match the current table page. Select a marker or candidate to inspect its exact pixel position.</p>
+    </section>
+
+    <section aria-labelledby="candidates-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="candidates-heading">Candidate sources</h2>
+          <p class="hint" id="candidate-count">Loading candidate list…</p>
+        </div>
+      </div>
+      <form class="filters" id="filters">
+        <label>Candidate type
+          <select id="filter-type">
+            <option value="">All types</option>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+          </select>
+        </label>
+        <label>Minimum |significance| (σ)
+          <input id="filter-significance" type="number" min="0" step="0.5" placeholder="Any">
+        </label>
+        <label>Order
+          <select id="sort-by">
+            <option value="significance">Highest significance first</option>
+            <option value="file">Source-file order</option>
+          </select>
+        </label>
+        <button type="submit">Apply filters</button>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Type</th>
+              <th scope="col">X pixel</th>
+              <th scope="col">Y pixel</th>
+              <th scope="col">Difference <span id="difference-column-unit">(image units)</span></th>
+              <th scope="col">Significance (σ)</th>
+            </tr>
+          </thead>
+          <tbody id="candidate-rows">
+            <tr><td class="message" colspan="5">Loading candidates…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <nav class="pagination" aria-label="Candidate pages">
+        <button id="previous" type="button" disabled>Previous</button>
+        <span id="page-label" aria-live="polite">Page 1</span>
+        <button id="next" type="button" disabled>Next</button>
+      </nav>
+      <p class="disclaimer">These are algorithmically identified candidates, not scientifically validated detections. Significance is exploratory and depends on the variance and quality maps; the noise model still needs scientific calibration. Pixel coordinates refer to the image, not sky coordinates.</p>
+    </section>
+  </main>
+  <dialog id="candidate-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-heading">
+      <h2 id="dialog-title">Candidate detail</h2>
+      <button id="close-dialog" type="button" aria-label="Close candidate details">Close</button>
+    </div>
+    <p class="dialog-meta" id="dialog-meta"></p>
+    <p class="message" id="cutout-status" role="status">Loading image cutout…</p>
+    <canvas id="cutout" width="1" height="1" hidden aria-label="Difference-image cutout centered on the selected candidate"></canvas>
+    <p class="cutout-legend">Difference image (Epoch 2 − Epoch 1). Blue is negative; red is positive.</p>
+  </dialog>
+  <script>
+    (() => {
+      const apiBase = "";
+      const pageSize = 50;
+      let offset = 0;
+      let total = 0;
+      const status = document.getElementById("status");
+      const rows = document.getElementById("candidate-rows");
+      const count = document.getElementById("candidate-count");
+      const pageLabel = document.getElementById("page-label");
+      const previous = document.getElementById("previous");
+      const next = document.getElementById("next");
+      const dialog = document.getElementById("candidate-dialog");
+      const cutoutCanvas = document.getElementById("cutout");
+      let requestId = 0;
+      let differenceUnit = "image units";
+      let imageDimensions = null;
+      let visibleCandidates = [];
+
+      const number = (value, digits = 3) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed)
+          ? new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(parsed)
+          : "—";
+      };
+
+      function setStatus(message, state) {
+        status.textContent = message;
+        status.dataset.state = state;
+      }
+
+      function showMessage(message) {
+        const cell = document.createElement("td");
+        cell.className = "message";
+        cell.colSpan = 5;
+        cell.textContent = message;
+        const row = document.createElement("tr");
+        row.append(cell);
+        rows.replaceChildren(row);
+      }
+
+      function loadObservationImages() {
+        const imageFiles = [
+          ["epoch1", "epoch1.fits", "inferno"],
+          ["epoch2", "epoch2_aligned_to_epoch1.fits", "inferno"],
+          ["difference", "epoch2_minus_epoch1_difference.fits", "coolwarm"],
+        ];
+        for (const [panelName, file, colormap] of imageFiles) {
+          const panel = document.querySelector(`[data-image-panel="${panelName}"]`);
+          const image = panel.querySelector("img");
+          const imageStatus = panel.querySelector(".image-status");
+          const params = new URLSearchParams({
+            file,
+            colormap,
+            percentile_low: "1",
+            percentile_high: "99.5",
+          });
+          image.onload = () => {
+            image.hidden = false;
+            imageStatus.hidden = true;
+            drawCandidateMarkers();
+          };
+          image.onerror = () => {
+            imageStatus.textContent = `Could not load ${file}. Check that the image is available, then refresh.`;
+          };
+          image.src = `${apiBase}/api/fits/image?${params}`;
+        }
+      }
+
+      function drawCandidateMarkers() {
+        if (!imageDimensions) return;
+        const { width, height } = imageDimensions;
+        const radius = Math.max(width, height) * 0.012;
+        for (const panel of document.querySelectorAll("[data-image-panel]")) {
+          const image = panel.querySelector("img");
+          const overlay = panel.querySelector(".candidate-overlay");
+          if (image.hidden || !image.naturalWidth) continue;
+          overlay.replaceChildren();
+          overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+          for (const candidate of visibleCandidates) {
+            const x = Number(candidate.x ?? candidate.x_pixel);
+            const y = Number(candidate.y ?? candidate.y_pixel);
+            if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= width || y >= height) continue;
+            const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            marker.setAttribute("class", `candidate-mark ${String(candidate.type).toLowerCase()}`);
+            marker.setAttribute("cx", String(x + 0.5));
+            marker.setAttribute("cy", String(height - y - 0.5));
+            marker.setAttribute("r", String(radius));
+            marker.setAttribute("role", "button");
+            marker.setAttribute("tabindex", "0");
+            marker.setAttribute("aria-label", `${candidate.type} candidate at pixel x ${x}, y ${y}`);
+            marker.addEventListener("click", () => showCandidate(candidate));
+            marker.addEventListener("keydown", event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                showCandidate(candidate);
+              }
+            });
+            overlay.append(marker);
+          }
+          overlay.removeAttribute("hidden");
+        }
+      }
+
+      async function loadComparison() {
+        const response = await fetch(`${apiBase}/api/compare`);
+        if (!response.ok) throw new Error(`Comparison endpoint returned HTTP ${response.status}`);
+        const data = await response.json();
+        document.getElementById("epoch1-shape").textContent = data.epoch1_shape.join(" × ");
+        document.getElementById("epoch2-shape").textContent = data.epoch2_shape.join(" × ");
+        imageDimensions = {
+          height: Number(data.epoch1_shape[0]),
+          width: Number(data.epoch1_shape[1]),
+        };
+        drawCandidateMarkers();
+        document.getElementById("valid-pixels").textContent = number(data.valid_pixels, 0);
+        document.getElementById("mean-difference").textContent = number(data.mean_difference, 6);
+        document.getElementById("median-difference").textContent = number(data.median_difference, 6);
+        differenceUnit = data.difference_unit || differenceUnit;
+        document.getElementById("mean-unit").textContent = differenceUnit;
+        document.getElementById("median-unit").textContent = differenceUnit;
+        document.getElementById("difference-column-unit").textContent = `(${differenceUnit})`;
+      }
+
+      async function loadCandidates() {
+        visibleCandidates = [];
+        drawCandidateMarkers();
+        rows.replaceChildren();
+        showMessage("Loading candidates…");
+        const params = new URLSearchParams({
+          limit: String(pageSize),
+          offset: String(offset),
+          sort_by: document.getElementById("sort-by").value,
+        });
+        const type = document.getElementById("filter-type").value;
+        const significance = document.getElementById("filter-significance").value;
+        if (type) params.set("candidate_type", type);
+        if (significance !== "") params.set("min_abs_significance", significance);
+        const response = await fetch(`${apiBase}/api/candidates?${params}`);
+        if (!response.ok) throw new Error(`Candidates endpoint returned HTTP ${response.status}`);
+        const data = await response.json();
+        total = data.total;
+        visibleCandidates = data.candidates;
+        drawCandidateMarkers();
+        count.textContent = `${number(total, 0)} candidates · showing ${total ? offset + 1 : 0}–${Math.min(offset + data.candidates.length, total)}`;
+        if (data.candidates.length === 0) {
+          showMessage("No candidates found.");
+        } else {
+          const fragment = document.createDocumentFragment();
+          for (const candidate of data.candidates) {
+            const row = document.createElement("tr");
+            const values = [
+              candidate.type,
+              candidate.x ?? candidate.x_pixel,
+              candidate.y ?? candidate.y_pixel,
+              candidate.difference,
+              candidate.significance ?? candidate.significance_sigma,
+            ];
+            values.forEach((value, index) => {
+              const cell = document.createElement("td");
+              if (index === 0) {
+                cell.className = `kind ${String(value || "").toLowerCase()}`;
+                const openButton = document.createElement("button");
+                openButton.type = "button";
+                openButton.className = "candidate-link";
+                openButton.textContent = value || "Unknown";
+                openButton.setAttribute("aria-label", `View ${value || "unknown"} candidate at x ${values[1]}, y ${values[2]}`);
+                openButton.addEventListener("click", () => showCandidate(candidate));
+                cell.append(openButton);
+              } else {
+                cell.textContent = number(value, index >= 3 ? 6 : 0);
+              }
+              row.append(cell);
+            });
+            fragment.append(row);
+          }
+          rows.replaceChildren(fragment);
+        }
+        previous.disabled = offset === 0;
+        next.disabled = offset + pageSize >= total;
+        pageLabel.textContent = `Page ${Math.floor(offset / pageSize) + 1} of ${Math.max(1, Math.ceil(total / pageSize))}`;
+      }
+
+      async function showCandidate(candidate) {
+        const x = Number(candidate.x ?? candidate.x_pixel);
+        const y = Number(candidate.y ?? candidate.y_pixel);
+        const significance = Number(candidate.significance ?? candidate.significance_sigma);
+        const difference = Number(candidate.difference);
+        document.getElementById("dialog-title").textContent = `${String(candidate.type)} candidate`;
+        document.getElementById("dialog-meta").textContent =
+          `Pixel (${x}, ${y}) · Difference ${number(difference, 6)} ${differenceUnit} · Significance ${number(significance, 3)} σ`;
+        const cutoutStatus = document.getElementById("cutout-status");
+        cutoutCanvas.hidden = true;
+        cutoutStatus.hidden = false;
+        cutoutStatus.textContent = "Loading difference-image cutout…";
+        dialog.showModal();
+        const currentRequest = ++requestId;
+        try {
+          const params = new URLSearchParams({ x: String(x), y: String(y), radius: "20" });
+          const response = await fetch(`${apiBase}/api/cutout?${params}`);
+          if (!response.ok) throw new Error(`Cutout endpoint returned HTTP ${response.status}`);
+          const result = await response.json();
+          if (currentRequest !== requestId) return;
+          const height = result.difference.length;
+          const width = height ? result.difference[0].length : 0;
+          if (!width || !height) throw new Error("The returned image cutout is empty.");
+          cutoutCanvas.width = width;
+          cutoutCanvas.height = height;
+          const context = cutoutCanvas.getContext("2d");
+          const pixels = context.createImageData(width, height);
+          const limit = Number(result.display_limit) || 1;
+          result.difference.forEach((line, rowIndex) => {
+            line.forEach((value, columnIndex) => {
+              const intensity = Math.min(1, Math.abs(Number(value)) / limit);
+              const index = (rowIndex * width + columnIndex) * 4;
+              if (value === null || !Number.isFinite(Number(value))) {
+                pixels.data.set([0, 0, 0, 255], index);
+              } else if (value < 0) {
+                pixels.data.set([20 + 40 * intensity, 35 + 150 * intensity, 80 + 175 * intensity, 255], index);
+              } else {
+                pixels.data.set([80 + 175 * intensity, 35 + 80 * intensity, 20 + 35 * intensity, 255], index);
+              }
+            });
+          });
+          context.putImageData(pixels, 0, 0);
+          context.strokeStyle = "#fff";
+          context.lineWidth = 0.14;
+          context.beginPath();
+          context.arc(x - result.x_min + 0.5, y - result.y_min + 0.5, 1.8, 0, Math.PI * 2);
+          context.moveTo(x - result.x_min - 1.5, y - result.y_min + 0.5);
+          context.lineTo(x - result.x_min + 2.5, y - result.y_min + 0.5);
+          context.moveTo(x - result.x_min + 0.5, y - result.y_min - 1.5);
+          context.lineTo(x - result.x_min + 0.5, y - result.y_min + 2.5);
+          context.stroke();
+          cutoutStatus.hidden = true;
+          cutoutCanvas.hidden = false;
+        } catch (error) {
+          if (currentRequest === requestId) {
+            cutoutStatus.textContent = `Could not load the image cutout: ${error.message}`;
+          }
+        }
+      }
+
+      async function refresh() {
+        setStatus("Loading data from the analysis API…", "loading");
+        loadObservationImages();
+        const results = await Promise.allSettled([loadComparison(), loadCandidates()]);
+        const failures = results.filter(result => result.status === "rejected");
+        if (failures.length) {
+          const message = failures.map(result => result.reason.message).join("; ");
+          setStatus(`Could not load all data: ${message}. Check that the backend is running on port 8000.`, "error");
+          if (results[1].status === "rejected") {
+            count.textContent = "Candidate list unavailable";
+            showMessage("Could not load candidates. Check that the backend is running, then refresh.");
+          }
+          return;
+        }
+        setStatus("Connected · data loaded", "ok");
+      }
+
+      previous.addEventListener("click", () => {
+        offset = Math.max(0, offset - pageSize);
+        loadCandidates().catch(error => {
+          count.textContent = error.message;
+          showMessage("Could not load this page. Try again.");
+        });
+      });
+      next.addEventListener("click", () => {
+        offset += pageSize;
+        loadCandidates().catch(error => {
+          offset = Math.max(0, offset - pageSize);
+          count.textContent = error.message;
+          showMessage("Could not load this page. Try again.");
+        });
+      });
+      document.getElementById("refresh").addEventListener("click", refresh);
+      document.getElementById("filters").addEventListener("submit", event => {
+        event.preventDefault();
+        offset = 0;
+        loadCandidates().catch(error => {
+          count.textContent = error.message;
+          showMessage("Could not load candidates for these filters.");
+        });
+      });
+      document.getElementById("close-dialog").addEventListener("click", () => dialog.close());
+      dialog.addEventListener("close", () => { requestId += 1; });
+      refresh();
+    })();
+  </script>
+</body>
+</html>
